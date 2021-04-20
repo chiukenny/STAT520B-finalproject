@@ -7,6 +7,7 @@
 \usepackage{float}
 \usepackage{xspace}
 \usepackage{color}
+\usepackage{graphicx}
 \usepackage{caption,subcaption}
 \usepackage[ruled]{algorithm2e}
 \usepackage[backend=biber,style=apa]{biblatex}
@@ -23,7 +24,9 @@
 \newcommand{\todo}{\textcolor{red}{TODO}}
 
 \newcommand{\vsmc}{\textsc{VSMC}\xspace}
-\newcommand{\frvsmc}{\textsc{FR-VSMC}\xspace}
+\newcommand{\uvsmc}{\textsc{uVSMC}\xspace}
+\newcommand{\gsvsmc}{\textsc{GS-VSMC}\xspace}
+\newcommand{\igrvsmc}{\textsc{IGR-VSMC}\xspace}
 \newcommand{\smc}{\textsc{SMC}\xspace}
 \newcommand{\mcmc}{\textsc{MCMC}\xspace}
 \newcommand{\kl}{\textsc{KL}\xspace}
@@ -31,9 +34,15 @@
 \newcommand{\categorical}{\textsc{Categorical}\xspace}
 \newcommand{\grep}{g_{\mathrm{rep}}}
 \newcommand{\gscore}{g_{\mathrm{score}}}
+\newcommand{\gumbelsoftmax}{\textsc{Gumbel-Softmax}\xspace}
+\newcommand{\gumbel}{\textsc{Gumbel}\xspace}
+\newcommand{\gaussian}{\textsc{Gaussian}\xspace}
+\newcommand{\igr}{\textsc{IGR}\xspace}
 \newcommand{\iwae}{\textsc{IWAE}\xspace}
+\newcommand{\ssm}{\textsc{SSM}\xspace}
 
 \DeclareMathOperator{\surrogate}{\tilde{\mathcal{L}}}
+\DeclareMathOperator*{\argmin}{arg\,min}
 
 % References
 \bibliography{refs.bib}
@@ -51,20 +60,20 @@
 \thispagestyle{fancy}
 
 \begin{abstract}
-\todo
+We review the main contributions and limitations of the original Variational Sequential Monte Carlo paper by \textcite{Naesseth:2018}. We also propose a modification to the Variational Sequential Monte Carlo algorithm where we replace the \categorical resampling step with a continuous, reparameterizable approximation in order to reduce the variance of the noisy unbiased gradient estimator. Our empirical results suggest that using the \gumbelsoftmax approximation reduces the variance of the unbiased estimator and achieves a performance comparable to that of the biased gradient estimator.
 \end{abstract}
 
 \section{Introduction}
 
-The paper by \textcite{Naesseth:2018} introduces Variational Sequential Monte Carlo (\vsmc) as a flexible variational family for approximating the posterior distribution of a sequence of random variables. In this project, we discuss the main contributions and limitations of the paper. We also review \vsmc and propose a fully reparameterized version of \vsmc (which we refer to as \frvsmc) aimed at addressing its problems of noisy gradient estimation. We evaluate our proposed extension through experiments similar to the ones in the original \vsmc paper.
+The paper by \textcite{Naesseth:2018} introduces Variational Sequential Monte Carlo (\vsmc) as a flexible variational family for approximating the posterior distribution of a sequence of random variables. In this project, we discuss the main contributions and limitations of the paper. We also review \vsmc and propose a fully reparameterized version of \vsmc aimed at addressing its problems of noisy gradient estimation. We evaluate our proposed extension through experiments similar to the ones in the original \vsmc paper.
 \\
 
-This report is organized as follows: Section~\ref{sec:vsmc} provides a review of the paper and \vsmc; Section~\ref{sec:approx} describes our proposed modification to \vsmc; Section~\ref{sec:experiments} discusses the results of our experiments evaluating \frvsmc; and Section~\ref{sec:discussion} summarizes our main points and concludes with a discussion of what we have learned.
+This report is organized as follows: Section~\ref{sec:vsmc} provides a review of the paper and \vsmc; Section~\ref{sec:approx} describes our proposed modification to \vsmc; Section~\ref{sec:experiments} discusses the results of our experiments evaluating our proposed modifications; and Section~\ref{sec:discussion} summarizes our main points and concludes with a discussion of what we have learned.
 
 
 \section{Variational Sequential Monte Carlo}\label{sec:vsmc}
 
-The main contributions of the paper by \textcite{Naesseth:2018} include the introduction of \vsmc variational family, as well as the derivation of a tractable bound for optimizing \vsmc. Following \parencite{Naesseth:2018}, we provide an overview of these ideas in the context of a state space model. Let $x_{1:T}$ and $y_{1:T}$ denote sequences of $T$ latent variables and $T$ observations, respectively, and assume that their joint distribution factorizes as
+The main contributions of the paper by \textcite{Naesseth:2018} include the introduction of \vsmc variational family, as well as the derivation of a tractable bound for optimizing \vsmc. Following \parencite{Naesseth:2018}, we provide an overview of these ideas in the context of a state space model (\ssm). Let $x_{1:T}$ and $y_{1:T}$ denote sequences of $T$ latent variables and $T$ observations, respectively, and assume that their joint distribution factorizes as
 \[
 p(x_{1:T},y_{1:T}) = p(x_1)\prod_{t=2}^Tp(x_t|x_{t-1})\prod_{t=1}^Tp(y_t|x_t) \;.
 \]
@@ -129,19 +138,100 @@ The $\gscore$ component is dependent on the \categorical distribution of the anc
 
 \subsection{Other Contributions and Limitations}
 
-We conclude this section with a brief mention of the other contributions and limitations of the paper. \textcite{Naesseth:2018} also made a connection between \vsmc and Importance Weighted Autoencoders~\parencite{Burda:2016} (\iwae) where the surrogate \elbo is exactly the \iwae lower bound when $T=1$. This leads to a reinterpretation of \iwae as \textit{variational importance sampling} and extends known results of \iwae to special cases of \vsmc (when $T=1$), namely, that the surrogate \elbo is tighter than that of standard Variational Bayes (when $N=1$).
+We conclude this section with a brief mention of the other contributions and limitations of the paper. \textcite{Naesseth:2018} also make a connection between \vsmc and Importance Weighted Autoencoders~\parencite{Burda:2016} (\iwae) where the surrogate \elbo is exactly the \iwae lower bound when $T=1$. This leads to a reinterpretation of \iwae as \textit{variational importance sampling} and extends known results of \iwae to special cases of \vsmc (when $T=1$), namely, that the surrogate \elbo is tighter than that of standard Variational Bayes (when $N=1$).
 \\
 
-One notable limitation of the paper is that the theory and experiments are all presented in the context of state space model problems despite the claim that \vsmc is applicable to any sequence of models. It would be interesting to see how \vsmc translates to other contexts and if any properties observed in the state space model context do not, but we do not focus on this idea further and leave it as a possible direction of future work.
+One notable limitation of the paper is that the theory and experiments are all presented in the context of state space model problems despite the claim that \vsmc is applicable to any sequence of models. It would be interesting to see how \vsmc translates to other contexts and if any properties observed in the state space model context do not, but we do not dwell on this point further and leave it as a possible direction of future work.
 
-\section{Approximation of the \categorical Distribution}\label{sec:approx}
+\section{Reparameterizing the Ancestors}\label{sec:approx}
+
+We propose a different strategy to address the large variance of the unbiased gradient estimator. Instead of resampling the ancestors from a \categorical distribution, we resample them from a continuous, reparameterizable approximation with the idea being that reparameterizing the ancestors in terms of some noise distribution independent of the parameters will reduce the variance of the unbiased gradient.
+\\
+
+We acknowledge that this idea is not entirely novel and has been explored in previous works. One \vsmc variant that \textcite{Lawson:2018} explored used the Straight-Through \gumbelsoftmax estimator \parencite{Jang:2017} to the \categorical when estimating the gradient, though the \categorical resampling was still used at run time. Though their empirical results suggest that this approach works well in practice, we suspect that the recovered variational parameters may not optimal due to a potential gap between the model being optimized and the model being used at run time. We instead propose to use the continuous resampling model for both when optimizing and when running \vsmc.
+\\
+
+To approximate an ancestor variable $a_t^i\in\mathbb{N}$, we rewrite the ancestor as a vector on the $(N-1)$-dimensional simplex, i.e., $a_t^i \in \Delta^{N-1}=\{(v_1,...,v_N)|\sum_{i=1}^Nv_i=1,v_i\geq0, i=1,...,N\}$. Ancestors sampled from the \categorical distribution would be in the form of one-hot vectors (one entry $v_i$ is $1$ and all others $0$). A continuous approximation relaxes this requirement and allows for any sample vectors that are on the simplex. Any approximating distribution that satisfies this relaxed requirement may be used, though the distribution should also be reparameterizable to be independent of the variational parameters as per our original motivation for this approach.
+\\
+
+A modification to the \smc procedure is needed when using the continuous approximation as there is no longer an interpretation of a state having a single ancestor for general vectors on the simplex. This can be resolved by interpreting the ancestor vector as mixture weights and taking the ancestor state as the convex mixture of all $N$ states from the previous timestep, i.e.,
+\[
+x_{t-1}^{a_t^i} = \sum_{\ell=1}^Na_t^i(\ell)x_{t-1}^{\ell}
+\]
+where $a_t^i(\ell)$ denotes the $\ell$-th entry of the vector $a_t^i$. Note that this modification to \vsmc implies that the particle construction procedure is no longer \textit{true} \smc and that the \vsmc objective becomes only approximate. However, we argue that as long as the ancestor vector is ``one-hot enough'', the difference coming from the approximation becomes negligible. This suggests that the approximating distribution should also be able to control the degree to which the sample vectors approximate one-hot vectors through some temperature parameter $\tau$. In the following sections, we discuss two candidate approximating distributions that satisfy all of our requirements above.
 
 \subsection{Gumbel-Softmax Distribution}
 
+The \gumbelsoftmax distribution \parencite{Jang:2017,Maddison:2017} was the approximating distribution explored by \textcite{Lawson:2018} and is a natural choice due to its direct translation from a \categorical distribution. To approximate a \categorical distribution with probabilities given by normalized weights $\tilde{w}_{t-1}^{1:N}$, the \gumbelsoftmax distribution generates a sample vector $a_t^i$ through the transformation
+\[
+a_t^i(j) = \frac{\exp\left(\frac{\log \tilde{w}_{t-1}^j+g_j^i}{\tau}\right)}{\sum_{\ell=1}^N\exp\left(\frac{\log \tilde{w}_{t-1}^\ell+g_\ell^i}{\tau}\right)} \qquad \text{for } j=1,...,N
+\]
+where $g_1^i,...,g_N^i$ are i.i.d. samples from a \textsc{Gumbel}$(0,1)$ distribution. This transformation reparameterizes the ancestors in terms of \gumbel noise. Smaller values of $\tau$ lead to samples that more closely resemble one-hot vectors, and larger values encourage more mixing between the components.
+
 \subsection{Invertible Gaussian Reparameterization}
+
+The Invertible Gaussian Reparameterization \parencite{Potapczynski:2020} (\igr) distribution is a more recent development for relaxing discrete distributions. The \gumbelsoftmax approximation is appealing as its parameters can be interpreted as the discrete distribution that is being approximated. \igr drops this property in exchange for more flexibility with the choice of the reparameterized distribution and the transformation function. For this project, we consider the \igr distribution as presented in \parencite{Potapczynski:2020}.
+\\
+
+Let $\mathcal{S}^{N-1}=\{(v_1,...,v_{N-1})|\sum_{i=1}^{N-1}v_i<1,v_i\geq0, i=1,...,N-1\}$ denote an alternative representation of $\Delta^{N-1}$.
+To generate a sample $a_t^i\in\Delta^{N-1}$ that approximates a sample from a \categorical distribution with probability $\tilde{w}_{t-1}^{1:N}$, the \igr distribution generates a vector $\tilde{a}_t^i\in\mathcal{S}^{N-1}$ through the sequence of transformations
+\begin{align*}
+z_t^i &= \mu_t + \mathrm{diag}(\sigma_t)\varepsilon_t^i \\
+\tilde{a}_t^i &= g(z_t^i,\tau)
+\end{align*}
+where $\varepsilon_t^i=$ is $\mathcal{N}(0,I_{N-1})$ noise, $\mu_t\in\mathbb{R}^{N-1}$, $\sigma_t\in (0,\infty)^{N-1}$, and $g$ is some invertible function with a tractable Jacobian. The vector $a_t^i$ is then recovered as
+\[
+a_t^i = \left(\tilde{a}_t^i(1), \ldots, \tilde{a}_t^i(N-1), 1-\sum_{\ell=1}^{N-1}\tilde{a}_t^i(\ell)\right) \;.
+\]
+\textcite{Potapczynski:2020} provide several suggestions for $g$. For simplicity, we use their modified softmax function
+\[
+g(z_t^i,\tau)(j) = \frac{\exp\left(\frac{z_t^i(j)}{\tau}\right)}{\sum_{\ell=1}^{N-1}\exp\left(\frac{z_t^i(\ell)}{\tau}\right)+\delta}
+\]
+where $\delta>0$. Like in \gumbelsoftmax, smaller values of $\tau$ discourage mixing.
+\\
+
+An important detail to note is that because the parameters of the \categorical distribution do not directly translate over to \igr parameters, \igr requires solving the the optimization problem
+\[
+(\mu_t,\sigma_t) = \argmin_{(\mu,\sigma)}\mathbb{E}_{\tilde{a}_t}\left[\|\tilde{a}_t-w_{t-1}^{1:N-1}\|_2^2\right] \;.
+\]
+In the context of \vsmc, this optimization needs to be done before the resampling procedure in each time step of \smc. We solve this optimization problem using automatic differentiation, which we have found to be a major computational bottleneck in non-trivial problems. We suspect that there may a closed analytical form for the solution (at least for certain choices of the reparameterized distribution and the transformation) that would alleviate this limitation, but we do not pursue this further given the time frame of this project.
 
 
 \section{Experiments}\label{sec:experiments}
+
+We evaluate our proposed extension of \vsmc on the same linear Gaussian \ssm problems studied by \textcite{Naesseth:2018}. These time series problems are useful for studying the properties of \vsmc as the log marginal likelihood $\log p(y_{1:T})$ can be computed using the Kalman filter \parencite{Jong:1988}. This allows us to directly compare \vsmc and our proposed extensions based on how well they can recover the marginal likelihood. The model for the linear Gaussian \ssm is
+\begin{align*}
+x_t &= Ax_{t-1} + v_t \\
+y_t &= Cx_t + e_t
+\end{align*}
+where $v_t\sim\mathcal{N}(0,Q)$, $e_t\sim\mathcal{N}(0,R)$, and $x_1\sim\mathcal{N}(0,I)$.
+\\
+
+In all of our experiments, we use $\tau=0.05$ for the \gumbelsoftmax and \igr approximations unless otherwise specified.
+
+\subsection{Scalar Linear Gaussian \ssm}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/grad_est_var.png}
+\caption{\textbf{(Left)} Mean and standard deviation over 100 samples of the gradient estimators for varying values of $\lambda$ for a single dataset. The number of particles is $N=2$. The optimal value of $\lambda$ is the point at which the mean gradient is 0. \textbf{(Right)} The same figure but without \uvsmc for better visibility.}
+\label{fig:grad_est_var}
+\end{figure}
+
+We consider the scalar linear Gaussian \ssm problem with $A=0.5$, $Q=1$, $C=1$, $R=1$, and $T=2$. Following \textcite{Naesseth:2018}, we use the proposal $q_\lambda(x_t|x_{t-1}) = \mathcal{N}(\lambda+0.5x_{t-1}, 1)$ with $\lambda\in\mathbb{R}$ and $x_0=0$. We use $N=2$ particles to approximate the posterior.
+\\
+
+We first investigate whether our proposed extension reduces the variance of the unbiased surrogate \elbo gradient estimator. Figure~\ref{fig:grad_est_var} shows the mean and the standard deviation over 100 samples of each gradient estimator as $\lambda$ varies for a single generated dataset. The four gradient estimators are \vsmc ($\grep$), \uvsmc ($\grep+\gscore$), \gsvsmc (\vsmc with \gumbelsoftmax), and \igrvsmc (\vsmc with \igr). The observed behaviour of \vsmc and \uvsmc are similar to what was observed with $\grep$ and $\gscore$ in \parencite{Naesseth:2018}, though we note that the standard deviation of our estimators appears to be larger than what they observed. We were unable to find the source of this difference in spread, but we suspect it to be a numerical stability issue coming from automatic differentiation. The figure clearly shows that \gsvsmc and \igrvsmc reduce the variance of the unbiased gradient estimator (\uvsmc), and that the behaviour of \gsvsmc and \igrvsmc are very similar to that of the biased gradient estimator (\vsmc).
+\\
+
+We next evaluate how tight of a lower bound our proposed extension is able to estimate. Figure~\ref{fig:slgss_elbo} shows
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/slgss_elbo.png}
+\caption{\todo}
+\label{fig:slgss_elbo}
+\end{figure}
 
 
 \section{Discussion}\label{sec:discussion}
@@ -150,45 +240,6 @@ One notable limitation of the paper is that the theory and experiments are all p
 
 \subsection{VSMC}
 
-VSMC addresses the problem of choosing a proposal distribution in SMC by instead learning a parameterized proposal.
-\\
-
-To sample from the VSMC family, SMC is run with the proposals parameterized by $\lambda$ to obtain a set of trajectories, and then a single trajectory $x_{1:T}^{b_T}$ is sampled with probability proportional to its weight. The variational distribution $q_\lambda(x_{1:T})$ marginalizes out all auxiliary variables created in the sampling process. The joint distribution for all variables generated by VSMC is given by
-\[
-\tilde{\phi}_\lambda(x_{1:T}^{1:N},a_{1:T-1}^{1:N},b_T) = \prod_{i=1}^N\left[r_\lambda(x_1^i)\right]\prod_{t=2}^T\prod_{i=1}^N\left[\frac{w_{t-1}^{a_{t-1}^i}}{\sum_\ell w_{t-1}^\ell}r_\lambda(x_t^i|x_{t-1}^{a_{t-1}^i})\right]\left[\frac{w_T^{b_T}}{\sum_\ell w_T^\ell}\right]
-\]
-Note that the data $y_{1:T}$ enter through the weights and optionally through the proposal distribution.
-\\
-
-Let $b_t=a_t^{b_{t+1}}$ for $t\leq T-1$ denote the ancestors for the final trajectory $x_{1:T}^{b_T}$. Let $\neg b_{1:T}$ denote all indices not equal to $(b_1,...,b_T)$. Then the marginal distribution of $x_{1:T}=x_{1:T}^{b_{1:T}}=(x_1^{b_1},...,x_T^{b_T})$ is given by
-\[
-q_\lambda(x_{1:T}|y_{1:T}) = p(x_{1:T},y_{1:T})\mathbb{E}_{\tilde{\phi}_\lambda(x_{1:T}^{\neg b_{1:T}},a_{1:T-1}^{\neg b_{1:T-1}})}\left[\hat{p}(y_{1:T})^{-1}\right]
-\]
-MCMC estimates of the expectation lead to biased estimates of $\log q_\lambda(x_{1:T}|y_{1:T})$ and the ELBO. Instead, a tractable lower bound to the ELBO that can be stochastically optimized is used. The surrogate ELBO is the expected log marginal likelihood estimate given by
-\begin{align*}
-\tilde{\mathcal{L}}(\lambda) &= \sum_{t=1}^T\mathbb{E}_{\tilde{\phi}_\lambda(x_{1:t}^{1:N},a_{1:t-1}^{1:N})}\left[\log\left(\frac{1}{N}\sum_{i=1}^Nw_t^i\right)\right] \\
-&= \mathbb{E}[\log\hat{p}(y_{1:T})] \\
-&\leq \mathcal{L}(\lambda) \\
-&\leq \log p(y_{1:T})
-\end{align*}
-
-The surrogate ELBO and its gradient can be estimated unbiasedly and stochastically using quantities produced during sampling from VSMC. It is assumed that the proposals $r_\lambda(x_t|x_{t-1})$ are reparameterizable in terms of some distribution $s$ that is not a function of $\lambda$, i.e., $x_t=h_\lambda(x_{t-1},\epsilon_t)$ and $\epsilon_t\sim s(\epsilon_t)$. The gradient of the surrogate ELBO is then given by
-\begin{align*}
-\nabla \tilde{\mathcal{L}}(\lambda) &= g_{rep} + g_{score} \\
-g_{rep} &= \mathbb{E}[\nabla\log\hat{p}(y_{1:T})] \\
-g_{score} &= \mathbb{E}\left[\log\hat{p}(y_{1:T})\nabla\log\tilde{\phi}_\lambda(a_{1:T-1}^{1:N}|\epsilon_{1:T}^{1:N})\right]
-\end{align*}
-Note that the ancestor variables are discrete and cannot be reparameterized. This may lead to high variance in the score term $g_{score}$. To lower the variance, Rao-Blackwellization \parencite{Robert:2021} can be applied by noting that the ancestor variables $a_{t-1}$ have no effect on weights prior to time $t$. This leads to
-\[
-g_{score} = \sum_{t=2}^T\mathbb{E}\left[\log \frac{\hat{p}(y_{1:T})}{\hat{p}(y_{1:t-1})}\left(\sum_{i=1}^N\nabla\log \frac{w_{t-1}^{a_{t-1}^i}}{\sum_\ell w_{t-1}^\ell}\right)\right]
-\]
-The score function $\nabla\log\tilde{\phi}_\lambda(a_{1:T-1}^{1:N}|\epsilon_{1:T}^{1:N})$ with estimates of future log average weights is used as a control variate.
-\\
-
-\textcite{Naesseth:2018} found that ignoring the score term $g_{score}$ from the ancestor variables leads to faster convergence while retaining a good approximation of the ELBO. This leads to the approximation
-\[
-\nabla\tilde{\mathcal{L}}(\lambda) \approx \mathbb{E}[\nabla\log\hat{p}(y_{1:T})] = g_{rep}
-\]
 
 To optimize VSMC, the algorithm is as follows:
 \begin{enumerate}
