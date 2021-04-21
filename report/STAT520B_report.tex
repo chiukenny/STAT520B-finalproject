@@ -40,6 +40,7 @@
 \newcommand{\igr}{\textsc{IGR}\xspace}
 \newcommand{\iwae}{\textsc{IWAE}\xspace}
 \newcommand{\ssm}{\textsc{SSM}\xspace}
+\newcommand{\capm}{\textsc{Capm}\xspace}
 
 \DeclareMathOperator{\surrogate}{\tilde{\mathcal{L}}}
 \DeclareMathOperator*{\argmin}{arg\,min}
@@ -207,67 +208,71 @@ y_t &= Cx_t + e_t
 where $v_t\sim\mathcal{N}(0,Q)$, $e_t\sim\mathcal{N}(0,R)$, and $x_1\sim\mathcal{N}(0,I)$.
 \\
 
-In all of our experiments, we use $\tau=0.05$ for the \gumbelsoftmax and \igr approximations unless otherwise specified.
+In all of our experiments, we use $\tau=0.05$ for the \gumbelsoftmax and \igr approximations unless otherwise specified. For \igr, we use estimate the expectation of the inner optimization using 100 samples and optimize the parameters using 100 iterations of stochastic gradient descent.
 
 \subsection{Scalar Linear Gaussian \ssm}
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\textwidth]{figures/grad_est_var.png}
-\caption{\textbf{(Left)} Mean and standard deviation over 100 samples of the gradient estimators for varying values of $\lambda$ for a single dataset. The number of particles is $N=2$. The optimal value of $\lambda$ is the point at which the mean gradient is 0. \textbf{(Right)} The same figure but without \uvsmc for better visibility.}
-\label{fig:grad_est_var}
-\end{figure}
 
 We consider the scalar linear Gaussian \ssm problem with $A=0.5$, $Q=1$, $C=1$, $R=1$, and $T=2$. Following \textcite{Naesseth:2018}, we use the proposal $q_\lambda(x_t|x_{t-1}) = \mathcal{N}(\lambda+0.5x_{t-1}, 1)$ with $\lambda\in\mathbb{R}$ and $x_0=0$. We use $N=2$ particles to approximate the posterior.
 \\
 
-We first investigate whether our proposed extension reduces the variance of the unbiased surrogate \elbo gradient estimator. Figure~\ref{fig:grad_est_var} shows the mean and the standard deviation over 100 samples of each gradient estimator as $\lambda$ varies for a single generated dataset. The four gradient estimators are \vsmc ($\grep$), \uvsmc ($\grep+\gscore$), \gsvsmc (\vsmc with \gumbelsoftmax), and \igrvsmc (\vsmc with \igr). The observed behaviour of \vsmc and \uvsmc are similar to what was observed with $\grep$ and $\gscore$ in \parencite{Naesseth:2018}, though we note that the standard deviation of our estimators appears to be larger than what they observed. We were unable to find the source of this difference in spread, but we suspect it to be a numerical stability issue coming from automatic differentiation. The figure clearly shows that \gsvsmc and \igrvsmc reduce the variance of the unbiased gradient estimator (\uvsmc), and that the behaviour of \gsvsmc and \igrvsmc are very similar to that of the biased gradient estimator (\vsmc).
+\textbf{Variance of gradient estimator.} We first investigate whether our proposed extension reduces the variance of the unbiased surrogate \elbo gradient estimator. Figure~\ref{fig:grad_est_var} shows the mean and the standard deviation over 100 samples of each gradient estimator as $\lambda$ varies for a single generated dataset. The four gradient estimators are \vsmc ($\grep$), \uvsmc ($\grep+\gscore$), \gsvsmc (\vsmc with \gumbelsoftmax), and \igrvsmc (\vsmc with \igr). The observed behaviour of \vsmc and \uvsmc are similar to what was observed with $\grep$ and $\gscore$ in \parencite{Naesseth:2018}, though we note that the standard deviation of our estimators appears to be larger than what they observed (for $N=2$). We were unable to find the source of this difference in spread, but we suspect it to be a numerical stability issue coming from automatic differentiation. The figure clearly shows that \gsvsmc and \igrvsmc reduce the variance of the unbiased gradient estimator (\uvsmc), and that the behaviour of \gsvsmc and \igrvsmc are very similar to that of the biased gradient estimator (\vsmc).
 \\
 
-We next evaluate how tight of a lower bound our proposed extension is able to estimate. Figure~\ref{fig:slgss_elbo} shows
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/grad_est_var.png}
+\caption{\textbf{(Left)} Mean and standard deviation over 100 samples of the gradient estimators for varying values of $\lambda$ for a single scalar linear Gaussian \ssm problem. The number of particles is $N=2$. The optimal value of $\lambda$ is the point at which the mean gradient is 0. \textbf{(Right)} The same figure but without \uvsmc for better visibility.}
+\label{fig:grad_est_var}
+\end{figure}
+
+\textbf{Tightness of \elbo estimate.} We next evaluate how tight of a lower bound our proposed extension is able to estimate. Figure~\ref{fig:slgss_elbo} shows the mean and standard deviation of the estimated surrogate \elbo across 100 runs. Following \textcite{Naesseth:2018}, we try both the Adam step sequence and the adaptive $\rho$ step sequence \parencite{Kucukelbir:2017} given by
+\begin{align*}
+\rho^k &= \eta k^{-1/2+\delta}(1+\sqrt{s^k})^{-1} \\
+s^k &= t\left(\hat{\nabla}\tilde{\mathcal{L}}(\lambda^k)\right)^2+(1-t)s^{k-1}
+\end{align*}
+where $k$ is the iteration number, $\delta=10^{-16}$, $t=0.1$, and $\eta=0.1$. We find that all four \vsmc variants are able to closely estimate the \elbo after a reasonable number of iterations, although \vsmc with the unbiased gradient takes notably longer to converge. There is no notable difference between \vsmc, \gsvsmc, and \igrvsmc. We also note that the $\rho$ step sequence appears to work better than Adam and so we use the $\rho$ steps in our following experiments unless otherwise specified.
+\\
 
 \begin{figure}[t]
 \centering
 \includegraphics[width=\textwidth]{figures/slgss_elbo.png}
-\caption{\todo}
+\caption{Mean and standard deviation of the estimated surrogate \elbo for a scalar linear Gaussian \ssm problem across 100 runs. The black line is the log marginal likelihood $\log p(y_{1:T})$. The left figure shows using the $\rho$ step sequence and the right shows using the Adam step sequence.}
 \label{fig:slgss_elbo}
 \end{figure}
 
+\textbf{Role of $\tau$.} We also investigate the role of the temperature $\tau$ specifically in \gsvsmc. Figure~\ref{fig:tau_plots} shows the mean and standard deviation of the \elbo gradient estimate as well as the mean and standard deviation of the \elbo estimate for \gsvsmc with three levels of $\tau$. We observe that the standard deviation of the gradient estimator can become unstable for small $\tau$ (e.g., $\tau=0.001$). Somewhat surprisingly however, the value of $\tau$ does not seem to greatly impact estimation of the \elbo. Even when the number of particles is large (e.g., $N=50$), the impact of greater mixing on the \elbo estimate is marginal considering the relative error. Our results suggest that using a $\tau$ ``small enough'' (e.g., $\tau=0.1$) is likely sufficient for reasonable estimation.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/tau_plots.png}
+\caption{\textbf{(Left)} Mean and standard deviation over 100 gradient estimates of \gsvsmc with different values of $\tau$ for a scalar linear Gaussian \ssm problem. \textbf{(Center, Right)} Mean and standard deviation over 100 \elbo estimates of \gsvsmc with different values of $\tau$ and using $N$ particles.}
+\label{fig:tau_plots}
+\end{figure}
+
+\subsection{Linear Gaussian \ssm}
+
+We evaluate our proposed extension on higher dimensional linear Gaussian \ssm problems. We use the model $(A)_{i,j}=\alpha^{|i-j|+1}$ where $\alpha=0.42$, $Q=I$, $R=I$, $C\sim\mathcal{N}(0,I)$, and $T=10$. We try two settings of $d_x=\dim(x_t)$ and $d_y=\dim(y_t)$. We use the proposal
+\[
+q_\lambda(x_t|x_{t-1}) = \mathcal{N}\left(\mu_t+\mathrm{diag}(\beta_t)Ax_{t-1},\mathrm{diag}(\sigma_t^2)\right)
+\]
+and set the number of particles $N=4$.
+\\
+
+Figure~\ref{fig:lgss_elbo} shows the mean and standard deviation of the estimated surrogate \elbo for \vsmc, \uvsmc and \gsvsmc over 100 runs. Note that we found the optimization step of \igrvsmc to be prohibitively expensive in this context and so we did not bother to consider it. We also found that \uvsmc converged at a much slower in this context (if at all), though we note that we did not fine tune the step sizes beyond trying the Adam and $\rho$ step sequences. The performance of \gsvsmc seems comparable to \vsmc in the first setting but does not converge as fast in the second setting. \todo
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{figures/lgss_elbo.png}
+\caption{Mean and standard deviation of the estimated surrogate \elbo for two linear Gaussian \ssm problem across 100 runs. The black line is the log marginal likelihood $\log p(y_{1:T})$. Note: \uvsmc is using the Adam step sequence.}
+\label{fig:lgss_elbo}
+\end{figure}
+
+\subsection{Capital Asset Pricing Model}
+
+We lastly evaluate our proposed extension on the Capital Asset Pricing Model (\capm) dataset \parencite{Verbeek:2004}.
+
 
 \section{Discussion}\label{sec:discussion}
-
-\newpage
-
-\subsection{VSMC}
-
-
-To optimize VSMC, the algorithm is as follows:
-\begin{enumerate}
-
-\item
-Estimate $\nabla\tilde{\mathcal{L}}(\lambda)$ using a single sample from $s(\cdot)\tilde{\phi}_\lambda(\cdot|\cdot)$ which is obtained as a byproduct from sampling VSMC.
-
-\item
-Compute the step-size. \textcite{Naesseth:2018} use Adam given by
-\begin{align*}
-\rho^n &= \eta n^{-1/2+\delta}(1+\sqrt{s^n})^{-1} \\
-s^n &= t\left(\hat{\nabla}\tilde{\mathcal{L}}(\lambda^n)\right)^2+(1-t)s^{n-1}
-\end{align*}
-for iteration $n$, $\delta=10^{-16}$, $t=0.1$, and various values for $\eta$.
-
-\item
-Update the variational parameters
-\[
-\lambda^{n+1} = \lambda^n+\rho^n\hat{\nabla}\tilde{\mathcal{L}}(\lambda^n)
-\]
-
-\end{enumerate}
-
-If the target distribution $p_\theta(x_{1:T}|y_{1:T})$ depends on a set of unknown parameters $\theta$, the parameters can be fit using variational EM. The surrogate ELBO is then
-\[
-\log p_\theta(y_{1:T}) \geq \tilde{\mathcal{L}}(\lambda,\theta)
-\]
-where the normalization constant $p_\theta(y_{1:T})$ is now a function of $\theta$. $\tilde{\mathcal{L}}(\lambda,\theta)$ can be optimized with respect to both $\theta$ and $\lambda$ using stochastic optimization.
 
 
 
